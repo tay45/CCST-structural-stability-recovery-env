@@ -105,7 +105,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, List, Literal, Tuple, Optional
+from typing import Dict, List, Literal, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -162,11 +162,14 @@ def _steps(T: float, dt: float) -> int:
         raise ValueError("T/dt must be positive.")
     return s
 
+
 def _parse_csv_floats(s: str) -> List[float]:
     return [float(x.strip()) for x in s.split(",") if x.strip()]
 
+
 def _eta_crit_default(n: int = 10, lo: float = 0.50, hi: float = 0.95) -> List[float]:
     return [float(x) for x in np.linspace(lo, hi, n)]
+
 
 def _seed_mix(base: int, tag: int) -> int:
     # deterministic mixing (avoid Python hash randomization)
@@ -177,6 +180,7 @@ def _seed_mix(base: int, tag: int) -> int:
     x = (x * 0xC2B2AE35) & 0xFFFFFFFF
     x ^= (x >> 16)
     return int(x)
+
 
 def _global_ylim_from_panels(panels: List[np.ndarray]) -> Tuple[float, float]:
     # Panels are in percent scale.
@@ -201,6 +205,7 @@ def _global_ylim_from_panels(panels: List[np.ndarray]) -> Tuple[float, float]:
 
 def phi_det(eta: np.ndarray, cfg: Config) -> np.ndarray:
     return cfg.Phi0 + cfg.alpha * (1.0 - eta)
+
 
 def recovery_k_side(eta: np.ndarray, cfg: Config, recovery: RecoveryType) -> np.ndarray:
     if recovery == "none":
@@ -233,13 +238,14 @@ def simulate_eta_min(
     """
     Vectorized simulation for N trajectories; returns eta_min on [0,T].
 
-    White noise:
+    White noise (Euler–Maruyama increment):
       target=lambda: eta <- eta - env_sigma*eta*sqrt(dt)*Z
       target=Phi   : eta <- eta - gamma*env_sigma*sqrt(dt)*Z
 
     OU noise:
       OU state X has stationary std env_sigma; correlation tau; exact discretization:
-        X_{t+dt} = a*X_t + std_step*Z,  a=exp(-dt/tau), std_step=env_sigma*sqrt(1-a^2)
+        X_{t+dt} = a*X_t + std_step*Z,
+        a=exp(-dt/tau), std_step=env_sigma*sqrt(1-a^2)
       Insert:
         target=lambda: drift += -(X*eta)
         target=Phi   : drift += -(gamma*X)
@@ -264,7 +270,7 @@ def simulate_eta_min(
     if env_model == "ou" and env_sigma > 0:
         X = np.zeros(cfg.N, dtype=float)
         a = np.exp(-cfg.dt / tau)
-        std_step = env_sigma * np.sqrt(max(0.0, 1.0 - a*a))
+        std_step = env_sigma * np.sqrt(max(0.0, 1.0 - a * a))
     else:
         X = None
         a = 0.0
@@ -347,26 +353,55 @@ def plot_overlay_three_stage(
     tau: float,
     outpath: Path,
     paper_ready: bool = True,
+    show_textbox: bool = True,
+    textbox_mode: str = "compact",  # "compact" | "full"
 ) -> None:
     x = np.array(eta_crit_list, dtype=float)
 
     # Stage 1: env-only (no recovery, no fluctuations)
-    y_env_only = np.array(rstruct_curve(
-        cfg=cfg, recovery="none", env_model="none", fluct_target=fluct_target,
-        env_sigma=0.0, tau=tau, eta_crit_list=eta_crit_list, seed_tag=1
-    ), dtype=float)
+    y_env_only = np.array(
+        rstruct_curve(
+            cfg=cfg,
+            recovery="none",
+            env_model="none",
+            fluct_target=fluct_target,
+            env_sigma=0.0,
+            tau=tau,
+            eta_crit_list=eta_crit_list,
+            seed_tag=1,
+        ),
+        dtype=float,
+    )
 
     # Stage 2: + recovery (no fluctuations)
-    y_recovery = np.array(rstruct_curve(
-        cfg=cfg, recovery=recovery, env_model="none", fluct_target=fluct_target,
-        env_sigma=0.0, tau=tau, eta_crit_list=eta_crit_list, seed_tag=2
-    ), dtype=float)
+    y_recovery = np.array(
+        rstruct_curve(
+            cfg=cfg,
+            recovery=recovery,
+            env_model="none",
+            fluct_target=fluct_target,
+            env_sigma=0.0,
+            tau=tau,
+            eta_crit_list=eta_crit_list,
+            seed_tag=2,
+        ),
+        dtype=float,
+    )
 
     # Stage 3: + recovery + fluctuations
-    y_recovery_fluct = np.array(rstruct_curve(
-        cfg=cfg, recovery=recovery, env_model=env_model, fluct_target=fluct_target,
-        env_sigma=env_sigma, tau=tau, eta_crit_list=eta_crit_list, seed_tag=3
-    ), dtype=float)
+    y_recovery_fluct = np.array(
+        rstruct_curve(
+            cfg=cfg,
+            recovery=recovery,
+            env_model=env_model,
+            fluct_target=fluct_target,
+            env_sigma=env_sigma,
+            tau=tau,
+            eta_crit_list=eta_crit_list,
+            seed_tag=3,
+        ),
+        dtype=float,
+    )
 
     # styling
     if paper_ready:
@@ -386,35 +421,79 @@ def plot_overlay_three_stage(
 
     plt.figure(figsize=figsize, dpi=dpi)
 
-    plt.plot(x, 100*y_env_only, marker="o", linewidth=lw, markersize=ms,
-             label="(1) env only (no recovery, no fluctuations)")
-    plt.plot(x, 100*y_recovery, marker="o", linewidth=lw, markersize=ms,
-             label=f"(2) + recovery ({recovery}), no fluctuations")
-    plt.plot(x, 100*y_recovery_fluct, marker="o", linewidth=lw, markersize=ms,
-             label=f"(3) + fluctuations ({env_model}, target={fluct_target}, σ={env_sigma:g})")
+    plt.plot(
+        x,
+        100 * y_env_only,
+        marker="o",
+        linewidth=lw,
+        markersize=ms,
+        label="(1) env only (no recovery, no fluctuations)",
+    )
+    plt.plot(
+        x,
+        100 * y_recovery,
+        marker="o",
+        linewidth=lw,
+        markersize=ms,
+        label=f"(2) + recovery ({recovery}), no fluctuations",
+    )
+    plt.plot(
+        x,
+        100 * y_recovery_fluct,
+        marker="o",
+        linewidth=lw,
+        markersize=ms,
+        label=f"(3) + fluctuations ({env_model}, target={fluct_target}, σ={env_sigma:g})",
+    )
 
-    y0, y1 = _global_ylim_from_panels([100*y_env_only, 100*y_recovery, 100*y_recovery_fluct])
+    y0, y1 = _global_ylim_from_panels(
+        [100 * y_env_only, 100 * y_recovery, 100 * y_recovery_fluct]
+    )
     plt.ylim(y0, y1)
     plt.xlim(float(x.min()) - 0.01, float(x.max()) + 0.01)
     plt.grid(True, alpha=0.25)
     plt.xlabel(r"Structural threshold $\eta_{\mathrm{crit}}$", fontsize=fs)
     plt.ylabel(r"$R_{\mathrm{struct}}$ (\%)", fontsize=fs)
-    plt.title("Three-stage overlay: baseline → recovery → recovery+fluctuations", fontsize=fs_title)
-
-        # concise textbox (MINIMAL; avoids crowding)
-    box = (
-        rf"$N={cfg.N}$, $T={cfg.T}$, $\Delta t={cfg.dt}$, $\eta_0={cfg.eta0}$" + "\n" +
-        rf"$\lambda\sim U({cfg.lambda_min},{cfg.lambda_max})$, $\gamma={cfg.gamma}$, $\Phi_0={cfg.Phi0}$, $\alpha={cfg.alpha}$" + "\n" +
-        rf"$\eta^\ast={cfg.eta_star}$, recovery={recovery}" + "\n" +
-        rf"env={env_model}, target={fluct_target}, $\sigma={env_sigma:g}$, $\tau={tau}$; CRN={cfg.crn}, seed={cfg.seed}"
-    )
-    plt.gca().text(
-        0.98, 0.02, box, transform=plt.gca().transAxes,
-        fontsize=max(7, fs-3), va="bottom", ha="right",
-        bbox=dict(boxstyle="round,pad=0.18", facecolor="white", alpha=0.85, edgecolor="0.7"),
+    plt.title(
+        "Three-stage overlay: baseline → recovery → recovery+fluctuations",
+        fontsize=fs_title,
     )
 
-    plt.legend(frameon=True, fontsize=fs-1, loc="best")
+    # parameter textbox (compact + unobtrusive)
+    if show_textbox:
+        if textbox_mode == "full":
+            box = (
+                rf"$N={cfg.N}$, $T={cfg.T}$, $\Delta t={cfg.dt}$, $\eta_0={cfg.eta0}$" + "\n"
+                rf"$\lambda\sim U({cfg.lambda_min},{cfg.lambda_max})$, $\gamma={cfg.gamma}$, $\Phi_0={cfg.Phi0}$, $\alpha={cfg.alpha}$" + "\n"
+                rf"$\eta^\ast={cfg.eta_star}$, quad $k={cfg.k}$, asym $(k_-,k_+)=( {cfg.k_minus},{cfg.k_plus})$" + "\n"
+                rf"env={env_model}, target={fluct_target}, $\sigma={env_sigma:g}$, OU $\tau={tau}$; CRN={cfg.crn}, seed={cfg.seed}"
+            )
+        else:
+            # compact (recommended for paper)
+            box = (
+                rf"$N={cfg.N}$, $T={cfg.T}$, $\Delta t={cfg.dt}$" + "\n"
+                rf"$\lambda\sim U({cfg.lambda_min},{cfg.lambda_max})$, $\gamma={cfg.gamma}$" + "\n"
+                rf"recovery={recovery}, env={env_model}, target={fluct_target}, $\sigma={env_sigma:g}$, $\tau={tau}$"
+            )
+
+        ax = plt.gca()
+        ax.text(
+            0.985,
+            0.02,
+            box,
+            transform=ax.transAxes,
+            fontsize=max(7, fs - 3),
+            va="bottom",
+            ha="right",
+            bbox=dict(
+                boxstyle="round,pad=0.18",
+                facecolor="white",
+                alpha=0.72,
+                edgecolor="0.75",
+            ),
+        )
+
+    plt.legend(frameon=True, fontsize=fs - 1, loc="best")
     outpath.parent.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
     plt.savefig(outpath, bbox_inches="tight")
@@ -454,7 +533,7 @@ def plot_grid_recovery_vs_env(
 
     # precompute all curves -> enforce shared y-limits
     panels: Dict[Tuple[int, int], np.ndarray] = {}
-    all_panels = []
+    all_panels: List[np.ndarray] = []
 
     base_km, base_kp = cfg.k_minus, cfg.k_plus
 
@@ -465,16 +544,29 @@ def plot_grid_recovery_vs_env(
             cfg_row = Config(**{**asdict(cfg), "k": float(kval)})
         else:
             # asym: interpret kval as multiplier
-            cfg_row = Config(**{**asdict(cfg),
-                                "k_minus": float(kval) * base_km,
-                                "k_plus": float(kval) * base_kp})
+            cfg_row = Config(
+                **{
+                    **asdict(cfg),
+                    "k_minus": float(kval) * base_km,
+                    "k_plus": float(kval) * base_kp,
+                }
+            )
+
         for j, es in enumerate(env_sigma_list):
             em = env_model if es > 0 else "none"
-            y = np.array(rstruct_curve(
-                cfg=cfg_row, recovery=recovery, env_model=em,
-                fluct_target=fluct_target, env_sigma=float(es), tau=tau,
-                eta_crit_list=eta_crit_list, seed_tag=1000 + 37*i + j
-            ), dtype=float)
+            y = np.array(
+                rstruct_curve(
+                    cfg=cfg_row,
+                    recovery=recovery,
+                    env_model=em,
+                    fluct_target=fluct_target,
+                    env_sigma=float(es),
+                    tau=tau,
+                    eta_crit_list=eta_crit_list,
+                    seed_tag=1000 + 37 * i + j,
+                ),
+                dtype=float,
+            )
             y_pct = 100.0 * y
             panels[(i, j)] = y_pct
             all_panels.append(y_pct)
@@ -483,7 +575,6 @@ def plot_grid_recovery_vs_env(
 
     # styling
     if paper_ready:
-        # compact, paper-like
         figsize = (2.45 * ncols + 1.25, 2.15 * nrows + 1.15)
         dpi = 320
         lw = 1.6
@@ -505,9 +596,12 @@ def plot_grid_recovery_vs_env(
         fs_anno = 9
 
     fig, axes = plt.subplots(
-        nrows=nrows, ncols=ncols,
-        figsize=figsize, dpi=dpi,
-        sharex=True, sharey=True,
+        nrows=nrows,
+        ncols=ncols,
+        figsize=figsize,
+        dpi=dpi,
+        sharex=True,
+        sharey=True,
         squeeze=False,
         constrained_layout=True,
     )
@@ -530,7 +624,15 @@ def plot_grid_recovery_vs_env(
                         lab = f"{int(round(yi))}"
                     else:
                         lab = f"{yi:.2f}"
-                    ax.text(xi, yi, lab, ha="center", va="bottom", fontsize=fs_anno, clip_on=True)
+                    ax.text(
+                        xi,
+                        yi,
+                        lab,
+                        ha="center",
+                        va="bottom",
+                        fontsize=fs_anno,
+                        clip_on=True,
+                    )
 
             # column headers (top row): env sigma
             if i == 0:
@@ -544,8 +646,16 @@ def plot_grid_recovery_vs_env(
                     rowlab = rf"$\times {kval:g}$"
                 else:
                     rowlab = "none"
-                ax.text(-0.22, 0.50, rowlab, transform=ax.transAxes,
-                        rotation=90, va="center", ha="center", fontsize=fs_rowcol)
+                ax.text(
+                    -0.22,
+                    0.50,
+                    rowlab,
+                    transform=ax.transAxes,
+                    rotation=90,
+                    va="center",
+                    ha="center",
+                    fontsize=fs_rowcol,
+                )
 
             # outer axis labels only
             if i == nrows - 1:
@@ -553,7 +663,6 @@ def plot_grid_recovery_vs_env(
             if j == 0:
                 ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
 
-            # per-panel legend is typically unnecessary in grids
             if not remove_panel_legends:
                 ax.legend(fontsize=fs_tick)
 
@@ -561,16 +670,29 @@ def plot_grid_recovery_vs_env(
     if big_outer_labels:
         fig.suptitle(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU $\tau={tau}$)",
-            fontsize=fs_title + 1
+            fontsize=fs_title + 1,
         )
-        fig.text(0.5, 0.01, "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
-                 ha="center", va="bottom", fontsize=fs_outer)
-        fig.text(0.01, 0.5, "Recovery strength  (rows: increasing basin strength)",
-                 ha="left", va="center", rotation=90, fontsize=fs_outer)
+        fig.text(
+            0.5,
+            0.01,
+            "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
+            ha="center",
+            va="bottom",
+            fontsize=fs_outer,
+        )
+        fig.text(
+            0.01,
+            0.5,
+            "Recovery strength  (rows: increasing basin strength)",
+            ha="left",
+            va="center",
+            rotation=90,
+            fontsize=fs_outer,
+        )
     else:
         fig.suptitle(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU tau={tau})",
-            fontsize=fs_title + 1
+            fontsize=fs_title + 1,
         )
 
     outpath.parent.mkdir(parents=True, exist_ok=True)
@@ -644,7 +766,7 @@ def preset_table() -> Dict[str, Dict]:
             env_model="white",
             fluct_target="lambda",
             env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 0.5, 1.0, 1.5],   # multiplier on (k_minus,k_plus)
+            k_list=[0.0, 0.5, 1.0, 1.5],  # multiplier on (k_minus,k_plus)
             tau=0.05,
             paper_ready=True,
         ),
@@ -664,7 +786,7 @@ def preset_table() -> Dict[str, Dict]:
             env_model="ou",
             fluct_target="Phi",
             env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 0.5, 1.0, 1.5],   # multiplier on (k_minus,k_plus)
+            k_list=[0.0, 0.5, 1.0, 1.5],  # multiplier on (k_minus,k_plus)
             tau=0.05,
             paper_ready=True,
         ),
@@ -699,6 +821,8 @@ def run_preset(
             tau=float(p["tau"]),
             outpath=outdir / outname,
             paper_ready=bool(p["paper_ready"]),
+            show_textbox=True,
+            textbox_mode="compact",
         )
         return outdir / outname
 
@@ -767,8 +891,12 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--tau", type=float, default=Config.tau)
 
     # thresholds
-    ap.add_argument("--eta-crit-list", type=str, default=None,
-                    help="Comma-separated eta_crit list. Default: 10 points in [0.50,0.95].")
+    ap.add_argument(
+        "--eta-crit-list",
+        type=str,
+        default=None,
+        help="Comma-separated eta_crit list. Default: 10 points in [0.50,0.95].",
+    )
 
     # grid sweeps
     ap.add_argument("--env-sigma-list", type=str, default="0,0.1,0.2,0.3",
@@ -784,6 +912,12 @@ def build_parser() -> argparse.ArgumentParser:
     # RNG
     ap.add_argument("--seed", type=int, default=Config.seed)
     ap.add_argument("--no-crn", action="store_true", help="Disable common random numbers across conditions.")
+
+    # overlay textbox controls
+    ap.add_argument("--no-textbox", action="store_true",
+                    help="Disable the parameter textbox on overlay plots.")
+    ap.add_argument("--textbox", type=str, default="compact", choices=["compact", "full"],
+                    help="Overlay textbox content. Default: compact.")
 
     return ap
 
@@ -826,16 +960,26 @@ def main() -> int:
 
     # If preset is specified, run it and exit (unless run-all-presets is also specified)
     if args.preset and not args.run_all_presets:
-        path = run_preset(name=args.preset, cfg=cfg, eta_crit_list=eta_crit_list,
-                          outdir=outdir, annotate=str(args.grid_annotate))
+        path = run_preset(
+            name=args.preset,
+            cfg=cfg,
+            eta_crit_list=eta_crit_list,
+            outdir=outdir,
+            annotate=str(args.grid_annotate),
+        )
         print(f"[write] {path}")
         return 0
 
     # run all presets = final test set
     if args.run_all_presets:
         for name in sorted(preset_table().keys()):
-            path = run_preset(name=name, cfg=cfg, eta_crit_list=eta_crit_list,
-                              outdir=outdir, annotate=str(args.grid_annotate))
+            path = run_preset(
+                name=name,
+                cfg=cfg,
+                eta_crit_list=eta_crit_list,
+                outdir=outdir,
+                annotate=str(args.grid_annotate),
+            )
             print(f"[write] {path}")
         return 0
 
@@ -859,6 +1003,8 @@ def main() -> int:
             tau=cfg.tau,
             outpath=outdir / fname,
             paper_ready=True,
+            show_textbox=(not bool(args.no_textbox)),
+            textbox_mode=str(args.textbox),
         )
         print(f"[write] {outdir / fname}")
 
