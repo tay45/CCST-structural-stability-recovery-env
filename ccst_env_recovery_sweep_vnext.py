@@ -42,62 +42,6 @@ Important modeling note (honesty)
 This is a toy model: its job is visual regime illustration, not micro-branching.
 We keep the "drift vs recovery" separation explicit, and introduce fluctuations
 as environment variability acting on a chosen target (lambda or Phi).
-
-Model
------
-State: eta(t) in [0,1] (coherence/stability proxy)
-
-Baseline deterministic backbone (per branch b):
-  d eta/dt = -lambda_b * eta - gamma * Phi(eta)
-  Phi(eta) = Phi0 + alpha*(1 - eta)
-
-Recovery (optional):
-  + k_side(eta) * (eta_star - eta)
-  where:
-    none: k_side=0
-    quad: k_side = k
-    asym: k_side = k_minus if eta<eta_star else k_plus
-
-Environmental fluctuations (optional)
--------------------------------------
-Targets:
-  target=lambda:
-    lambda_b -> lambda_b + delta_lambda(t)
-    enters drift as:  -(delta_lambda(t) * eta)
-
-  target=Phi:
-    Phi -> Phi + delta_Phi(t)
-    enters drift as:  -(gamma * delta_Phi(t))
-
-Fluctuation models:
-  none:
-    delta_* = 0
-  white:
-    EM increment:
-      target=lambda: d eta += -(env_sigma * eta) dW
-      target=Phi   : d eta += -(gamma * env_sigma) dW
-    env_sigma is a diffusion amplitude (per sqrt(time))
-  ou:
-    OU state X(t) with correlation time tau and stationary std env_sigma:
-      dX = -(1/tau)X dt + sqrt(2/tau)*env_sigma dW
-    Insert X into drift as delta_lambda=X or delta_Phi=X.
-
-Reproducibility
----------------
-- Default uses CRN (common random numbers) across conditions to stabilize
-  *comparisons*. Disable with --no-crn.
-
-Examples
---------
-# Overlay (default preset-like settings if you specify args)
-python3 ccst_env_recovery_sweep_vnext.py --overlay --outdir figs
-
-# Grid
-python3 ccst_env_recovery_sweep_vnext.py --grid --env-sigma-list 0,0.1,0.2,0.3 --k-list 0,6,12,18 --outdir figs
-
-# Presets
-python3 ccst_env_recovery_sweep_vnext.py --preset grid_ou_phi_asym --outdir figs
-python3 ccst_env_recovery_sweep_vnext.py --run-all-presets --outdir figs
 """
 
 from __future__ import annotations
@@ -197,6 +141,12 @@ def _global_ylim_from_panels(panels: List[np.ndarray]) -> Tuple[float, float]:
         y0 = max(0.0, mid - 0.5)
         y1 = min(100.0, mid + 0.5)
     return y0, y1
+
+
+def _textbox_suffix(show_textbox: bool, textbox_mode: str) -> str:
+    if not show_textbox:
+        return "tbnone"
+    return f"tb{textbox_mode}"
 
 
 # ============================================================
@@ -361,14 +311,9 @@ def plot_overlay_three_stage(
     # Stage 1: env-only (no recovery, no fluctuations)
     y_env_only = np.array(
         rstruct_curve(
-            cfg=cfg,
-            recovery="none",
-            env_model="none",
-            fluct_target=fluct_target,
-            env_sigma=0.0,
-            tau=tau,
-            eta_crit_list=eta_crit_list,
-            seed_tag=1,
+            cfg=cfg, recovery="none", env_model="none",
+            fluct_target=fluct_target, env_sigma=0.0, tau=tau,
+            eta_crit_list=eta_crit_list, seed_tag=1
         ),
         dtype=float,
     )
@@ -376,14 +321,9 @@ def plot_overlay_three_stage(
     # Stage 2: + recovery (no fluctuations)
     y_recovery = np.array(
         rstruct_curve(
-            cfg=cfg,
-            recovery=recovery,
-            env_model="none",
-            fluct_target=fluct_target,
-            env_sigma=0.0,
-            tau=tau,
-            eta_crit_list=eta_crit_list,
-            seed_tag=2,
+            cfg=cfg, recovery=recovery, env_model="none",
+            fluct_target=fluct_target, env_sigma=0.0, tau=tau,
+            eta_crit_list=eta_crit_list, seed_tag=2
         ),
         dtype=float,
     )
@@ -391,14 +331,9 @@ def plot_overlay_three_stage(
     # Stage 3: + recovery + fluctuations
     y_recovery_fluct = np.array(
         rstruct_curve(
-            cfg=cfg,
-            recovery=recovery,
-            env_model=env_model,
-            fluct_target=fluct_target,
-            env_sigma=env_sigma,
-            tau=tau,
-            eta_crit_list=eta_crit_list,
-            seed_tag=3,
+            cfg=cfg, recovery=recovery, env_model=env_model,
+            fluct_target=fluct_target, env_sigma=env_sigma, tau=tau,
+            eta_crit_list=eta_crit_list, seed_tag=3
         ),
         dtype=float,
     )
@@ -421,45 +356,22 @@ def plot_overlay_three_stage(
 
     plt.figure(figsize=figsize, dpi=dpi)
 
-    plt.plot(
-        x,
-        100 * y_env_only,
-        marker="o",
-        linewidth=lw,
-        markersize=ms,
-        label="(1) env only (no recovery, no fluctuations)",
-    )
-    plt.plot(
-        x,
-        100 * y_recovery,
-        marker="o",
-        linewidth=lw,
-        markersize=ms,
-        label=f"(2) + recovery ({recovery}), no fluctuations",
-    )
-    plt.plot(
-        x,
-        100 * y_recovery_fluct,
-        marker="o",
-        linewidth=lw,
-        markersize=ms,
-        label=f"(3) + fluctuations ({env_model}, target={fluct_target}, σ={env_sigma:g})",
-    )
+    plt.plot(x, 100 * y_env_only, marker="o", linewidth=lw, markersize=ms,
+             label="(1) env only (no recovery, no fluctuations)")
+    plt.plot(x, 100 * y_recovery, marker="o", linewidth=lw, markersize=ms,
+             label=f"(2) + recovery ({recovery}), no fluctuations")
+    plt.plot(x, 100 * y_recovery_fluct, marker="o", linewidth=lw, markersize=ms,
+             label=f"(3) + fluctuations ({env_model}, target={fluct_target}, σ={env_sigma:g})")
 
-    y0, y1 = _global_ylim_from_panels(
-        [100 * y_env_only, 100 * y_recovery, 100 * y_recovery_fluct]
-    )
+    y0, y1 = _global_ylim_from_panels([100 * y_env_only, 100 * y_recovery, 100 * y_recovery_fluct])
     plt.ylim(y0, y1)
     plt.xlim(float(x.min()) - 0.01, float(x.max()) + 0.01)
     plt.grid(True, alpha=0.25)
     plt.xlabel(r"Structural threshold $\eta_{\mathrm{crit}}$", fontsize=fs)
     plt.ylabel(r"$R_{\mathrm{struct}}$ (\%)", fontsize=fs)
-    plt.title(
-        "Three-stage overlay: baseline → recovery → recovery+fluctuations",
-        fontsize=fs_title,
-    )
+    plt.title("Three-stage overlay: baseline → recovery → recovery+fluctuations", fontsize=fs_title)
 
-    # parameter textbox (compact + unobtrusive)
+    # parameter textbox
     if show_textbox:
         if textbox_mode == "full":
             box = (
@@ -469,7 +381,6 @@ def plot_overlay_three_stage(
                 rf"env={env_model}, target={fluct_target}, $\sigma={env_sigma:g}$, OU $\tau={tau}$; CRN={cfg.crn}, seed={cfg.seed}"
             )
         else:
-            # compact (recommended for paper)
             box = (
                 rf"$N={cfg.N}$, $T={cfg.T}$, $\Delta t={cfg.dt}$" + "\n"
                 rf"$\lambda\sim U({cfg.lambda_min},{cfg.lambda_max})$, $\gamma={cfg.gamma}$" + "\n"
@@ -478,17 +389,12 @@ def plot_overlay_three_stage(
 
         ax = plt.gca()
         ax.text(
-            0.985,
-            0.02,
-            box,
-            transform=ax.transAxes,
-            fontsize=max(7, fs - 3),
-            va="bottom",
-            ha="right",
+            0.985, 0.02, box, transform=ax.transAxes,
+            fontsize=max(7, fs - 3), va="bottom", ha="right",
             bbox=dict(
-                boxstyle="round,pad=0.18",
+                boxstyle="round,pad=0.14",  # smaller than before
                 facecolor="white",
-                alpha=0.72,
+                alpha=0.60,                # more transparent
                 edgecolor="0.75",
             ),
         )
@@ -516,14 +422,6 @@ def plot_grid_recovery_vs_env(
     remove_panel_legends: bool = True,
     big_outer_labels: bool = True,
 ) -> None:
-    """
-    Paper-ready grid:
-      columns = env_sigma
-      rows    = recovery strength
-
-    For quad: row uses k values.
-    For asym: row uses a "scale factor" s; internally (k_minus,k_plus) := s*(base k_minus,k_plus).
-    """
     x = np.array(eta_crit_list, dtype=float)
     env_sigma_list = [float(v) for v in env_sigma_list]
     k_list = [float(v) for v in k_list]
@@ -531,7 +429,6 @@ def plot_grid_recovery_vs_env(
     nrows = len(k_list)
     ncols = len(env_sigma_list)
 
-    # precompute all curves -> enforce shared y-limits
     panels: Dict[Tuple[int, int], np.ndarray] = {}
     all_panels: List[np.ndarray] = []
 
@@ -543,27 +440,17 @@ def plot_grid_recovery_vs_env(
         elif recovery == "quad":
             cfg_row = Config(**{**asdict(cfg), "k": float(kval)})
         else:
-            # asym: interpret kval as multiplier
-            cfg_row = Config(
-                **{
-                    **asdict(cfg),
-                    "k_minus": float(kval) * base_km,
-                    "k_plus": float(kval) * base_kp,
-                }
-            )
+            cfg_row = Config(**{**asdict(cfg),
+                                "k_minus": float(kval) * base_km,
+                                "k_plus": float(kval) * base_kp})
 
         for j, es in enumerate(env_sigma_list):
             em = env_model if es > 0 else "none"
             y = np.array(
                 rstruct_curve(
-                    cfg=cfg_row,
-                    recovery=recovery,
-                    env_model=em,
-                    fluct_target=fluct_target,
-                    env_sigma=float(es),
-                    tau=tau,
-                    eta_crit_list=eta_crit_list,
-                    seed_tag=1000 + 37 * i + j,
+                    cfg=cfg_row, recovery=recovery, env_model=em,
+                    fluct_target=fluct_target, env_sigma=float(es), tau=tau,
+                    eta_crit_list=eta_crit_list, seed_tag=1000 + 37 * i + j
                 ),
                 dtype=float,
             )
@@ -573,7 +460,6 @@ def plot_grid_recovery_vs_env(
 
     y0, y1 = _global_ylim_from_panels(all_panels)
 
-    # styling
     if paper_ready:
         figsize = (2.45 * ncols + 1.25, 2.15 * nrows + 1.15)
         dpi = 320
@@ -596,12 +482,9 @@ def plot_grid_recovery_vs_env(
         fs_anno = 9
 
     fig, axes = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=figsize,
-        dpi=dpi,
-        sharex=True,
-        sharey=True,
+        nrows=nrows, ncols=ncols,
+        figsize=figsize, dpi=dpi,
+        sharex=True, sharey=True,
         squeeze=False,
         constrained_layout=True,
     )
@@ -617,28 +500,14 @@ def plot_grid_recovery_vs_env(
             ax.set_ylim(y0, y1)
             ax.tick_params(labelsize=fs_tick)
 
-            # annotate if requested
             if annotate != "none":
                 for xi, yi in zip(x, y_pct):
-                    if annotate == "int":
-                        lab = f"{int(round(yi))}"
-                    else:
-                        lab = f"{yi:.2f}"
-                    ax.text(
-                        xi,
-                        yi,
-                        lab,
-                        ha="center",
-                        va="bottom",
-                        fontsize=fs_anno,
-                        clip_on=True,
-                    )
+                    lab = f"{int(round(yi))}" if annotate == "int" else f"{yi:.2f}"
+                    ax.text(xi, yi, lab, ha="center", va="bottom", fontsize=fs_anno, clip_on=True)
 
-            # column headers (top row): env sigma
             if i == 0:
                 ax.set_title(rf"$\sigma_{{\mathrm{{env}}}}={es:g}$", fontsize=fs_rowcol)
 
-            # row labels (left side): recovery strength
             if j == 0:
                 if recovery == "quad":
                     rowlab = rf"$k={kval:g}$"
@@ -646,18 +515,9 @@ def plot_grid_recovery_vs_env(
                     rowlab = rf"$\times {kval:g}$"
                 else:
                     rowlab = "none"
-                ax.text(
-                    -0.22,
-                    0.50,
-                    rowlab,
-                    transform=ax.transAxes,
-                    rotation=90,
-                    va="center",
-                    ha="center",
-                    fontsize=fs_rowcol,
-                )
+                ax.text(-0.22, 0.50, rowlab, transform=ax.transAxes,
+                        rotation=90, va="center", ha="center", fontsize=fs_rowcol)
 
-            # outer axis labels only
             if i == nrows - 1:
                 ax.set_xlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
             if j == 0:
@@ -666,29 +526,15 @@ def plot_grid_recovery_vs_env(
             if not remove_panel_legends:
                 ax.legend(fontsize=fs_tick)
 
-    # big outer labels (paper-like)
     if big_outer_labels:
         fig.suptitle(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU $\tau={tau}$)",
             fontsize=fs_title + 1,
         )
-        fig.text(
-            0.5,
-            0.01,
-            "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
-            ha="center",
-            va="bottom",
-            fontsize=fs_outer,
-        )
-        fig.text(
-            0.01,
-            0.5,
-            "Recovery strength  (rows: increasing basin strength)",
-            ha="left",
-            va="center",
-            rotation=90,
-            fontsize=fs_outer,
-        )
+        fig.text(0.5, 0.01, "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
+                 ha="center", va="bottom", fontsize=fs_outer)
+        fig.text(0.01, 0.5, "Recovery strength  (rows: increasing basin strength)",
+                 ha="left", va="center", rotation=90, fontsize=fs_outer)
     else:
         fig.suptitle(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU tau={tau})",
@@ -705,90 +551,34 @@ def plot_grid_recovery_vs_env(
 # ============================================================
 
 def preset_table() -> Dict[str, Dict]:
-    """
-    Each preset returns a dict specifying:
-      mode: "overlay" or "grid"
-      and corresponding argument overrides.
-    """
     return {
-        # --- Overlays (3-stage) ---
         "overlay_white_lambda_quad": dict(
-            mode="overlay",
-            recovery="quad",
-            env_model="white",
-            fluct_target="lambda",
-            env_sigma=0.25,
-            tau=0.05,
-            paper_ready=True,
+            mode="overlay", recovery="quad", env_model="white", fluct_target="lambda", env_sigma=0.25, tau=0.05, paper_ready=True
         ),
         "overlay_white_lambda_asym": dict(
-            mode="overlay",
-            recovery="asym",
-            env_model="white",
-            fluct_target="lambda",
-            env_sigma=0.25,
-            tau=0.05,
-            paper_ready=True,
+            mode="overlay", recovery="asym", env_model="white", fluct_target="lambda", env_sigma=0.25, tau=0.05, paper_ready=True
         ),
         "overlay_ou_phi_quad": dict(
-            mode="overlay",
-            recovery="quad",
-            env_model="ou",
-            fluct_target="Phi",
-            env_sigma=0.25,
-            tau=0.05,
-            paper_ready=True,
+            mode="overlay", recovery="quad", env_model="ou", fluct_target="Phi", env_sigma=0.25, tau=0.05, paper_ready=True
         ),
         "overlay_ou_phi_asym": dict(
-            mode="overlay",
-            recovery="asym",
-            env_model="ou",
-            fluct_target="Phi",
-            env_sigma=0.25,
-            tau=0.05,
-            paper_ready=True,
+            mode="overlay", recovery="asym", env_model="ou", fluct_target="Phi", env_sigma=0.25, tau=0.05, paper_ready=True
         ),
-
-        # --- Grids (paper-ready) ---
         "grid_white_lambda_quad": dict(
-            mode="grid",
-            recovery="quad",
-            env_model="white",
-            fluct_target="lambda",
-            env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 6.0, 12.0, 18.0],
-            tau=0.05,
-            paper_ready=True,
+            mode="grid", recovery="quad", env_model="white", fluct_target="lambda",
+            env_sigma_list=[0.0, 0.10, 0.20, 0.30], k_list=[0.0, 6.0, 12.0, 18.0], tau=0.05, paper_ready=True
         ),
         "grid_white_lambda_asym": dict(
-            mode="grid",
-            recovery="asym",
-            env_model="white",
-            fluct_target="lambda",
-            env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 0.5, 1.0, 1.5],  # multiplier on (k_minus,k_plus)
-            tau=0.05,
-            paper_ready=True,
+            mode="grid", recovery="asym", env_model="white", fluct_target="lambda",
+            env_sigma_list=[0.0, 0.10, 0.20, 0.30], k_list=[0.0, 0.5, 1.0, 1.5], tau=0.05, paper_ready=True
         ),
         "grid_ou_phi_quad": dict(
-            mode="grid",
-            recovery="quad",
-            env_model="ou",
-            fluct_target="Phi",
-            env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 6.0, 12.0, 18.0],
-            tau=0.05,
-            paper_ready=True,
+            mode="grid", recovery="quad", env_model="ou", fluct_target="Phi",
+            env_sigma_list=[0.0, 0.10, 0.20, 0.30], k_list=[0.0, 6.0, 12.0, 18.0], tau=0.05, paper_ready=True
         ),
         "grid_ou_phi_asym": dict(
-            mode="grid",
-            recovery="asym",
-            env_model="ou",
-            fluct_target="Phi",
-            env_sigma_list=[0.0, 0.10, 0.20, 0.30],
-            k_list=[0.0, 0.5, 1.0, 1.5],  # multiplier on (k_minus,k_plus)
-            tau=0.05,
-            paper_ready=True,
+            mode="grid", recovery="asym", env_model="ou", fluct_target="Phi",
+            env_sigma_list=[0.0, 0.10, 0.20, 0.30], k_list=[0.0, 0.5, 1.0, 1.5], tau=0.05, paper_ready=True
         ),
     }
 
@@ -800,6 +590,8 @@ def run_preset(
     eta_crit_list: List[float],
     outdir: Path,
     annotate: str = "none",
+    show_textbox: bool = True,
+    textbox_mode: str = "compact",
 ) -> Path:
     presets = preset_table()
     if name not in presets:
@@ -810,7 +602,8 @@ def run_preset(
     outdir.mkdir(parents=True, exist_ok=True)
 
     if mode == "overlay":
-        outname = f"Rstruct_overlay_{name}.png"
+        tb_tag = _textbox_suffix(show_textbox, textbox_mode)
+        outname = f"Rstruct_overlay_{name}_{tb_tag}.png"
         plot_overlay_three_stage(
             cfg=cfg,
             eta_crit_list=eta_crit_list,
@@ -821,8 +614,8 @@ def run_preset(
             tau=float(p["tau"]),
             outpath=outdir / outname,
             paper_ready=bool(p["paper_ready"]),
-            show_textbox=True,
-            textbox_mode="compact",
+            show_textbox=show_textbox,
+            textbox_mode=textbox_mode,
         )
         return outdir / outname
 
@@ -855,13 +648,11 @@ def run_preset(
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
 
-    # modes
     ap.add_argument("--overlay", action="store_true", help="Generate a 3-stage overlay plot.")
     ap.add_argument("--grid", action="store_true", help="Generate a paper-ready grid plot.")
     ap.add_argument("--preset", type=str, default=None, help="Run a named paper preset.")
     ap.add_argument("--run-all-presets", action="store_true", help="Generate one figure per preset (final test set).")
     ap.add_argument("--list-presets", action="store_true", help="List available presets and exit.")
-
     ap.add_argument("--outdir", type=str, default=".", help="Output directory for figures.")
 
     # core config overrides
@@ -891,12 +682,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--tau", type=float, default=Config.tau)
 
     # thresholds
-    ap.add_argument(
-        "--eta-crit-list",
-        type=str,
-        default=None,
-        help="Comma-separated eta_crit list. Default: 10 points in [0.50,0.95].",
-    )
+    ap.add_argument("--eta-crit-list", type=str, default=None,
+                    help="Comma-separated eta_crit list. Default: 10 points in [0.50,0.95].")
 
     # grid sweeps
     ap.add_argument("--env-sigma-list", type=str, default="0,0.1,0.2,0.3",
@@ -915,9 +702,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # overlay textbox controls
     ap.add_argument("--no-textbox", action="store_true",
-                    help="Disable the parameter textbox on overlay plots.")
+                    help="Disable the parameter textbox on overlay plots (also applies to overlay presets).")
     ap.add_argument("--textbox", type=str, default="compact", choices=["compact", "full"],
-                    help="Overlay textbox content. Default: compact.")
+                    help="Overlay textbox content (also applies to overlay presets).")
 
     return ap
 
@@ -958,6 +745,10 @@ def main() -> int:
         crn=not bool(args.no_crn),
     )
 
+    # common textbox flags (apply everywhere)
+    show_textbox = (not bool(args.no_textbox))
+    textbox_mode = str(args.textbox)
+
     # If preset is specified, run it and exit (unless run-all-presets is also specified)
     if args.preset and not args.run_all_presets:
         path = run_preset(
@@ -966,6 +757,8 @@ def main() -> int:
             eta_crit_list=eta_crit_list,
             outdir=outdir,
             annotate=str(args.grid_annotate),
+            show_textbox=show_textbox,
+            textbox_mode=textbox_mode,
         )
         print(f"[write] {path}")
         return 0
@@ -979,6 +772,8 @@ def main() -> int:
                 eta_crit_list=eta_crit_list,
                 outdir=outdir,
                 annotate=str(args.grid_annotate),
+                show_textbox=show_textbox,
+                textbox_mode=textbox_mode,
             )
             print(f"[write] {path}")
         return 0
@@ -992,7 +787,8 @@ def main() -> int:
     fluct_target: FluctTarget = str(args.fluct_target)  # type: ignore
 
     if do_overlay:
-        fname = f"Rstruct_overlay_rec{recovery}_env{env_model}_tgt{fluct_target}_sig{cfg.env_sigma:g}.png"
+        tb_tag = _textbox_suffix(show_textbox, textbox_mode)
+        fname = f"Rstruct_overlay_rec{recovery}_env{env_model}_tgt{fluct_target}_sig{cfg.env_sigma:g}_{tb_tag}.png"
         plot_overlay_three_stage(
             cfg=cfg,
             eta_crit_list=eta_crit_list,
@@ -1003,8 +799,8 @@ def main() -> int:
             tau=cfg.tau,
             outpath=outdir / fname,
             paper_ready=True,
-            show_textbox=(not bool(args.no_textbox)),
-            textbox_mode=str(args.textbox),
+            show_textbox=show_textbox,
+            textbox_mode=textbox_mode,
         )
         print(f"[write] {outdir / fname}")
 
