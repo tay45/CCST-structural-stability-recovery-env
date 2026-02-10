@@ -427,7 +427,7 @@ def plot_grid_recovery_vs_env(
     paper_ready: bool = True,
     annotate: Literal["none", "int", "2dp"] = "none",
     remove_panel_legends: bool = True,
-    big_outer_labels: bool = True,
+    big_outer_labels: bool = False,
 ) -> None:
     x = np.array(eta_crit_list, dtype=float)
     env_sigma_list = [float(v) for v in env_sigma_list]
@@ -528,11 +528,15 @@ def plot_grid_recovery_vs_env(
             if i == nrows - 1:
                 ax.set_xlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
             if j == 0:
-                ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title - 1)
+                ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
 
             if not remove_panel_legends:
                 ax.legend(fontsize=fs_tick)
-
+    
+    # --- Global axis labels (ONLY ONCE for the whole grid) ---
+    fig.supxlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
+    fig.supylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
+  
     if big_outer_labels:
         fig.suptitle(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU $\tau={tau}$)",
@@ -828,7 +832,7 @@ def main() -> int:
             paper_ready=(not args.grid_draft),
             annotate=str(args.grid_annotate),  # type: ignore
             remove_panel_legends=True,
-            big_outer_labels=True,
+            big_outer_labels=False,
         )
         print(f"[write] {outdir / fname}")
 
