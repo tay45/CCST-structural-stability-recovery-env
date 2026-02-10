@@ -472,11 +472,11 @@ def plot_grid_recovery_vs_env(
         dpi = 320
         lw = 1.6
         ms = 3.0
-        fs_tick = 8.5
-        fs_title = 10.5
-        fs_outer = 12
-        fs_rowcol = 9.5
-        fs_anno = 7.5
+        fs_tick = 7.0
+        fs_title = 8.0
+        fs_outer = 9.0
+        fs_rowcol = 8.0
+        fs_anno = 6.5
     else:
         figsize = (3.6 * ncols, 3.0 * nrows)
         dpi = 180
@@ -528,7 +528,7 @@ def plot_grid_recovery_vs_env(
             if i == nrows - 1:
                 ax.set_xlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
             if j == 0:
-                ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
+                ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title - 1)
 
             if not remove_panel_legends:
                 ax.legend(fontsize=fs_tick)
@@ -538,9 +538,9 @@ def plot_grid_recovery_vs_env(
             rf"Grid: recovery={recovery} | env={env_model}, target={fluct_target} (OU $\tau={tau}$)",
             fontsize=fs_title + 1,
         )
-        fig.text(0.5, 0.01, "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
+        fig.text(0.5, 0.006, "Env fluctuation strength  (columns: increasing $\\sigma_{\\mathrm{env}}$)",
                  ha="center", va="bottom", fontsize=fs_outer)
-        fig.text(0.01, 0.5, "Recovery strength  (rows: increasing basin strength)",
+        fig.text(0.006, 0.5, "Recovery strength  (rows: increasing basin strength)",
                  ha="left", va="center", rotation=90, fontsize=fs_outer)
     else:
         fig.suptitle(
