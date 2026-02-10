@@ -149,6 +149,11 @@ def _textbox_suffix(show_textbox: bool, textbox_mode: str) -> str:
     return f"tb{textbox_mode}"
 
 
+def _legend_suffix(show_legend: bool) -> str:
+    # only used for overlay filenames (so different variants don't overwrite)
+    return "legnone" if not show_legend else "legbest"
+
+
 # ============================================================
 # Model pieces
 # ============================================================
@@ -305,6 +310,8 @@ def plot_overlay_three_stage(
     paper_ready: bool = True,
     show_textbox: bool = True,
     textbox_mode: str = "compact",  # "compact" | "full"
+    show_legend: bool = True,
+    legend_loc: str = "best",
 ) -> None:
     x = np.array(eta_crit_list, dtype=float)
 
@@ -399,7 +406,9 @@ def plot_overlay_three_stage(
             ),
         )
 
-    plt.legend(frameon=True, fontsize=fs - 1, loc="best")
+    if show_legend:
+        plt.legend(frameon=True, fontsize=fs - 1, loc=legend_loc)
+
     outpath.parent.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
     plt.savefig(outpath, bbox_inches="tight")
@@ -592,6 +601,8 @@ def run_preset(
     annotate: str = "none",
     show_textbox: bool = True,
     textbox_mode: str = "compact",
+    show_legend: bool = True,
+    legend_loc: str = "best",
 ) -> Path:
     presets = preset_table()
     if name not in presets:
@@ -603,7 +614,8 @@ def run_preset(
 
     if mode == "overlay":
         tb_tag = _textbox_suffix(show_textbox, textbox_mode)
-        outname = f"Rstruct_overlay_{name}_{tb_tag}.png"
+        lg_tag = _legend_suffix(show_legend)
+        outname = f"Rstruct_overlay_{name}_{tb_tag}_{lg_tag}.png"
         plot_overlay_three_stage(
             cfg=cfg,
             eta_crit_list=eta_crit_list,
@@ -616,6 +628,8 @@ def run_preset(
             paper_ready=bool(p["paper_ready"]),
             show_textbox=show_textbox,
             textbox_mode=textbox_mode,
+            show_legend=show_legend,
+            legend_loc=legend_loc,
         )
         return outdir / outname
 
@@ -706,6 +720,12 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--textbox", type=str, default="compact", choices=["compact", "full"],
                     help="Overlay textbox content (also applies to overlay presets).")
 
+    # overlay legend controls
+    ap.add_argument("--no-legend", action="store_true",
+                    help="Disable the legend on overlay plots (also applies to overlay presets).")
+    ap.add_argument("--legend-loc", type=str, default="best",
+                    help="Legend location for overlay plots (e.g., best, upper left, lower right).")
+
     return ap
 
 
@@ -745,9 +765,11 @@ def main() -> int:
         crn=not bool(args.no_crn),
     )
 
-    # common textbox flags (apply everywhere)
+    # common overlay flags (apply everywhere)
     show_textbox = (not bool(args.no_textbox))
     textbox_mode = str(args.textbox)
+    show_legend = (not bool(args.no_legend))
+    legend_loc = str(args.legend_loc)
 
     # If preset is specified, run it and exit (unless run-all-presets is also specified)
     if args.preset and not args.run_all_presets:
@@ -759,6 +781,8 @@ def main() -> int:
             annotate=str(args.grid_annotate),
             show_textbox=show_textbox,
             textbox_mode=textbox_mode,
+            show_legend=show_legend,
+            legend_loc=legend_loc,
         )
         print(f"[write] {path}")
         return 0
@@ -774,6 +798,8 @@ def main() -> int:
                 annotate=str(args.grid_annotate),
                 show_textbox=show_textbox,
                 textbox_mode=textbox_mode,
+                show_legend=show_legend,
+                legend_loc=legend_loc,
             )
             print(f"[write] {path}")
         return 0
@@ -788,7 +814,11 @@ def main() -> int:
 
     if do_overlay:
         tb_tag = _textbox_suffix(show_textbox, textbox_mode)
-        fname = f"Rstruct_overlay_rec{recovery}_env{env_model}_tgt{fluct_target}_sig{cfg.env_sigma:g}_{tb_tag}.png"
+        lg_tag = _legend_suffix(show_legend)
+        fname = (
+            f"Rstruct_overlay_rec{recovery}_env{env_model}_tgt{fluct_target}"
+            f"_sig{cfg.env_sigma:g}_{tb_tag}_{lg_tag}.png"
+        )
         plot_overlay_three_stage(
             cfg=cfg,
             eta_crit_list=eta_crit_list,
@@ -801,6 +831,8 @@ def main() -> int:
             paper_ready=True,
             show_textbox=show_textbox,
             textbox_mode=textbox_mode,
+            show_legend=show_legend,
+            legend_loc=legend_loc,
         )
         print(f"[write] {outdir / fname}")
 
