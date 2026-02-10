@@ -493,7 +493,7 @@ def plot_grid_recovery_vs_env(
         figsize=figsize, dpi=dpi,
         sharex=True, sharey=True,
         squeeze=False,
-        constrained_layout=True,
+        constrained_layout=False,
     )
 
     for i, kval in enumerate(k_list):
@@ -525,10 +525,10 @@ def plot_grid_recovery_vs_env(
                 ax.text(-0.22, 0.50, rowlab, transform=ax.transAxes,
                         rotation=90, va="center", ha="center", fontsize=fs_rowcol)
 
-            if i == nrows - 1:
-                ax.set_xlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
-            if j == 0:
-                ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
+            #if i == nrows - 1:
+                #ax.set_xlabel(r"$\eta_{\mathrm{crit}}$", fontsize=fs_title)
+            #if j == 0:
+                #ax.set_ylabel(r"$R_{\mathrm{struct}}$ (\%)$", fontsize=fs_title)
 
             if not remove_panel_legends:
                 ax.legend(fontsize=fs_tick)
@@ -553,6 +553,7 @@ def plot_grid_recovery_vs_env(
         )
 
     outpath.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
     fig.savefig(outpath, bbox_inches="tight")
     plt.close(fig)
 
@@ -645,7 +646,7 @@ def run_preset(
             paper_ready=bool(p["paper_ready"]),
             annotate=annotate if annotate in ("none", "int", "2dp") else "none",
             remove_panel_legends=True,
-            big_outer_labels=True,
+            big_outer_labels=False,
         )
         return outdir / outname
 
