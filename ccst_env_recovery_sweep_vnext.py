@@ -401,17 +401,17 @@ def plot_overlay_three_stage(
     plt.ylabel(r"$R_{\mathrm{struct}}$ (\%)", fontsize=fs)
     plt.title("Three-stage overlay: baseline → recovery → recovery+fluctuations", fontsize=fs_title)
 
-    # concise textbox (avoid label crowding)
+        # concise textbox (MINIMAL; avoids crowding)
     box = (
         rf"$N={cfg.N}$, $T={cfg.T}$, $\Delta t={cfg.dt}$, $\eta_0={cfg.eta0}$" + "\n" +
         rf"$\lambda\sim U({cfg.lambda_min},{cfg.lambda_max})$, $\gamma={cfg.gamma}$, $\Phi_0={cfg.Phi0}$, $\alpha={cfg.alpha}$" + "\n" +
-        rf"$\eta^\ast={cfg.eta_star}$, quad $k={cfg.k}$, asym $(k_-,k_+)=( {cfg.k_minus},{cfg.k_plus})$" + "\n" +
-        rf"CRN={cfg.crn}, seed={cfg.seed}, OU $\tau={tau}$"
+        rf"$\eta^\ast={cfg.eta_star}$, recovery={recovery}" + "\n" +
+        rf"env={env_model}, target={fluct_target}, $\sigma={env_sigma:g}$, $\tau={tau}$; CRN={cfg.crn}, seed={cfg.seed}"
     )
     plt.gca().text(
-        0.02, 0.03, box, transform=plt.gca().transAxes,
-        fontsize=fs-1, va="bottom", ha="left",
-        bbox=dict(boxstyle="round,pad=0.25", facecolor="white", alpha=0.90, edgecolor="0.7"),
+        0.98, 0.02, box, transform=plt.gca().transAxes,
+        fontsize=max(7, fs-3), va="bottom", ha="right",
+        bbox=dict(boxstyle="round,pad=0.18", facecolor="white", alpha=0.85, edgecolor="0.7"),
     )
 
     plt.legend(frameon=True, fontsize=fs-1, loc="best")
